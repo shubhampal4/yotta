@@ -1,0 +1,171 @@
+# Define for User 1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website
+  namespace: user1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: website
+  template:
+    metadata:
+      labels:
+        app: website
+    spec:
+      containers:
+      - name: website
+        image: yotta-app:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: TENANT
+          value: "user1"
+        - name: KAFKA_BROKER
+          value: "kafka-service.default.svc.cluster.local:9092"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: website-service
+  namespace: user1
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: website
+---
+# Define for User 2
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website
+  namespace: user2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: website
+  template:
+    metadata:
+      labels:
+        app: website
+    spec:
+      containers:
+      - name: website
+        image: yotta-app:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: TENANT
+          value: "user2"
+        - name: KAFKA_BROKER
+          value: "kafka-service.default.svc.cluster.local:9092"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: website-service
+  namespace: user2
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: website
+---
+# Define for User 3
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website
+  namespace: user3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: website
+  template:
+    metadata:
+      labels:
+        app: website
+    spec:
+      containers:
+      - name: website
+        image: yotta-app:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: TENANT
+          value: "user3"
+        - name: KAFKA_BROKER
+          value: "kafka-service.default.svc.cluster.local:9092"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: website-service
+  namespace: user3
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: website

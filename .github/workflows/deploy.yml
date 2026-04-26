@@ -1,0 +1,72 @@
+name: Multi-Tenant Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - 'user/*' # Supports multi-user branch deployments (e.g., user/user1)
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Tenant Context
+        id: context
+        run: |
+          if [[ "${{ github.ref }}" == refs/heads/user/* ]]; then
+            echo "tenant=${GITHUB_REF#refs/heads/user/}" >> $GITHUB_OUTPUT
+          else
+            echo "tenant=all" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Docker Image
+        run: |
+          docker build -t yotta-app:${{ github.sha }} ./app
+          docker tag yotta-app:${{ github.sha }} yotta-app:latest
+
+      # In a real scenario, we would login and push to ECR/GHCR here
+      # - name: Login to GHCR
+      #   uses: docker/login-action@v2
+      # ...
+
+      - name: Set up Kubeconfig
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Define which tenants to update
+          if [ "${{ steps.context.outputs.tenant }}" == "all" ]; then
+            TENANTS=("user1" "user2" "user3")
+          else
+            TENANTS=("${{ steps.context.outputs.tenant }}")
+          fi
+
+          for NS in "${TENANTS[@]}"; do
+            echo "--- Deploying to $NS ---"
+            
+            # 1. Update Image
+            kubectl set image deployment/website website=yotta-app:${{ github.sha }} -n $NS
+            
+            # 2. Wait for Rollout Status
+            echo "Verifying rollout..."
+            if ! kubectl rollout status deployment/website -n $NS --timeout=2m; then
+              echo "Rollout failed for $NS! Triggering rollback..."
+              kubectl rollout undo deployment/website -n $NS
+              exit 1
+            fi
+            
+            echo "Deployment successful for $NS"
+
+            # 3. Trigger Kafka Event
+            # Using a one-off pod to hit the trigger endpoint of the service
+            kubectl run trigger-${{ github.sha }} --image=curlimages/curl --rm --restart=Never -n $NS -- \
+              curl -s website-service:80/trigger-event
+              
+            echo "Kafka event triggered for $NS"
+          done

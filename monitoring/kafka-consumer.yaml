@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: default
+  labels:
+    app: kafka-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+      - name: kafka-consumer
+        image: confluentinc/cp-kafka:latest
+        command:
+          - /bin/bash
+          - -c
+          - |
+            echo "Starting consumer for deployment-events..."
+            while true; do
+              kafka-console-consumer \
+                --bootstrap-server kafka-service.default.svc.cluster.local:9092 \
+                --topic deployment-events \
+                --group tenant-event-processor \
+                --timeout-ms 10000 \
+                --max-messages 100 2>/dev/null || true
+              echo "Batch done, sleeping..."
+              sleep 30
+            done
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+          limits:
+            cpu: "100m"
+            memory: "256Mi"
